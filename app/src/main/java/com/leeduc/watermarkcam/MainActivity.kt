@@ -33,9 +33,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCapture: ImageButton
     private lateinit var btnFlash: ImageButton
     private lateinit var btnSwitchCamera: ImageButton
-    private lateinit var txtStatus: TextView
     private lateinit var txtExposure: TextView
     private lateinit var focusRing: android.view.View
+    private lateinit var screenFlashOverlay: android.view.View
+    private lateinit var reviewOverlay: android.view.View
+    private lateinit var imgReview: android.widget.ImageView
+    private lateinit var btnCloseReview: ImageButton
 
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
@@ -45,7 +48,8 @@ class MainActivity : AppCompatActivity() {
     // true = back camera, false = front camera
     private var usingBackCamera = true
 
-    // Remembers the flash on/off state between app launches (back camera only)
+    // Remembers the flash on/off state between app launches.
+    // Back camera: fires the real hardware flash. Front camera: flashes the screen white instead.
     private val prefs by lazy { getSharedPreferences("watermarkcam_prefs", MODE_PRIVATE) }
     private var flashOn: Boolean
         get() = prefs.getBoolean(KEY_FLASH, false)
@@ -73,18 +77,20 @@ class MainActivity : AppCompatActivity() {
         btnCapture = findViewById(R.id.btnCapture)
         btnFlash = findViewById(R.id.btnFlash)
         btnSwitchCamera = findViewById(R.id.btnSwitchCamera)
-        txtStatus = findViewById(R.id.txtStatus)
         txtExposure = findViewById(R.id.txtExposure)
         focusRing = findViewById(R.id.focusRing)
+        screenFlashOverlay = findViewById(R.id.screenFlashOverlay)
+        reviewOverlay = findViewById(R.id.reviewOverlay)
+        imgReview = findViewById(R.id.imgReview)
+        btnCloseReview = findViewById(R.id.btnCloseReview)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
         updateFlashIcon()
 
         btnFlash.setOnClickListener {
-            if (!usingBackCamera) return@setOnClickListener
             flashOn = !flashOn
             imageCapture?.flashMode =
-                if (flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+                if (usingBackCamera && flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
             updateFlashIcon()
         }
 
@@ -95,6 +101,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnCapture.setOnClickListener { takePhoto() }
+        btnCloseReview.setOnClickListener { closeReview() }
+        imgReview.setOnClickListener { closeReview() }
 
         setupTapToFocusAndExposure()
 
@@ -108,10 +116,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateFlashIcon() {
-        btnFlash.alpha = if (usingBackCamera) 1f else 0.35f
-        btnFlash.setImageResource(
-            if (flashOn && usingBackCamera) R.drawable.ic_flash_on else R.drawable.ic_flash_off
-        )
+        btnFlash.setImageResource(if (flashOn) R.drawable.ic_flash_on else R.drawable.ic_flash_off)
     }
 
     private fun startCamera() {
@@ -217,6 +222,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun takePhoto() {
+        if (!usingBackCamera && flashOn) {
+            // Front camera "flash" = flash the screen white at full brightness, then shoot.
+            showScreenFlash()
+            viewFinder.postDelayed({ capturePhoto() }, 350)
+        } else {
+            capturePhoto()
+        }
+    }
+
+    private fun showScreenFlash() {
+        screenFlashOverlay.visibility = android.view.View.VISIBLE
+        val lp = window.attributes
+        lp.screenBrightness = 1f
+        window.attributes = lp
+    }
+
+    private fun hideScreenFlash() {
+        screenFlashOverlay.visibility = android.view.View.GONE
+        val lp = window.attributes
+        lp.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        window.attributes = lp
+    }
+
+    private fun capturePhoto() {
         val capture = imageCapture ?: return
         btnCapture.isEnabled = false
         val isBack = usingBackCamera
@@ -234,14 +263,15 @@ class MainActivity : AppCompatActivity() {
                     val watermarked = drawTimestampWatermark(bitmap)
                     saveToGallery(watermarked)
                     runOnUiThread {
+                        hideScreenFlash()
                         btnCapture.isEnabled = true
-                        txtStatus.text = "Đã lưu ảnh"
-                        txtStatus.postDelayed({ txtStatus.text = "" }, 1500)
+                        showReview(watermarked)
                     }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
                     runOnUiThread {
+                        hideScreenFlash()
                         btnCapture.isEnabled = true
                         Toast.makeText(
                             this@MainActivity,
@@ -252,6 +282,17 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    /** Shows the just-captured photo full-screen so the user can review it before shooting again. */
+    private fun showReview(bitmap: Bitmap) {
+        imgReview.setImageBitmap(bitmap)
+        reviewOverlay.visibility = android.view.View.VISIBLE
+    }
+
+    private fun closeReview() {
+        reviewOverlay.visibility = android.view.View.GONE
+        imgReview.setImageBitmap(null)
     }
 
     /**
@@ -386,17 +427,18 @@ class MainActivity : AppCompatActivity() {
         val timeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
         val dateText = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(now)
         val dayText = SimpleDateFormat("EEEE", Locale("vi")).format(now)
-            .replaceFirstChar { it.uppercase() }
+            .split(" ")
+            .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
 
         val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textSize = 68f * scale
+            textSize = 100f * scale
             typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
-            setShadowLayer(6f * scale, 2f * scale, 2f * scale, Color.BLACK)
+            setShadowLayer(7f * scale, 2f * scale, 2f * scale, Color.BLACK)
         }
         val smallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textSize = 30f * scale
+            textSize = 42f * scale
             typeface = Typeface.DEFAULT
             setShadowLayer(5f * scale, 2f * scale, 2f * scale, Color.BLACK)
         }
@@ -404,8 +446,8 @@ class MainActivity : AppCompatActivity() {
             color = Color.parseColor("#FF7A00")
         }
 
-        val marginLeft = 36f * scale
-        val marginBottom = 50f * scale
+        val marginLeft = 44f * scale
+        val marginBottom = 60f * scale
 
         // Optional logo above the timestamp block — only drawn if the app provides
         // res/drawable/logo_watermark (your own logo). Nothing is drawn otherwise.
@@ -413,9 +455,9 @@ class MainActivity : AppCompatActivity() {
         if (logoResId != 0) {
             val logo = BitmapFactory.decodeResource(resources, logoResId)
             if (logo != null) {
-                val targetH = 70f * scale
+                val targetH = 90f * scale
                 val targetW = targetH * (logo.width.toFloat() / logo.height.toFloat())
-                val logoBottom = h - marginBottom - 108f * scale - 14f * scale
+                val logoBottom = h - marginBottom - 150f * scale - 16f * scale
                 canvas.drawBitmap(
                     logo, null,
                     RectF(marginLeft, logoBottom - targetH, marginLeft + targetW, logoBottom),
@@ -425,20 +467,20 @@ class MainActivity : AppCompatActivity() {
         }
 
         val dayBaseline = h - marginBottom
-        val dateBaseline = dayBaseline - (36f * scale)
+        val dateBaseline = dayBaseline - (48f * scale)
         val timeMetrics = timePaint.fontMetrics
-        val timeBaseline = dateBaseline - (timeMetrics.descent - timeMetrics.ascent) / 2f - 10f * scale
+        val timeBaseline = dateBaseline - (timeMetrics.descent - timeMetrics.ascent) / 2f - 12f * scale
 
         canvas.drawText(timeText, marginLeft, timeBaseline, timePaint)
 
-        val barLeft = marginLeft + timePaint.measureText(timeText) + 18f * scale
+        val barLeft = marginLeft + timePaint.measureText(timeText) + 22f * scale
         canvas.drawRect(
             barLeft, timeBaseline + timeMetrics.ascent,
-            barLeft + 4f * scale, timeBaseline + timeMetrics.descent,
+            barLeft + 6f * scale, timeBaseline + timeMetrics.descent,
             barPaint
         )
 
-        val textLeft2 = barLeft + 18f * scale
+        val textLeft2 = barLeft + 22f * scale
         canvas.drawText(dateText, textLeft2, dateBaseline, smallPaint)
         canvas.drawText(dayText, textLeft2, dayBaseline, smallPaint)
 
