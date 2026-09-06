@@ -452,15 +452,27 @@ class MainActivity : AppCompatActivity() {
 
         val dayBaseline = h - marginBottom
         val dateBaseline = dayBaseline - lineGap
-        // Time sits on the SAME row/baseline as the date line (not centered across both lines).
-        val timeBaseline = dateBaseline
+        val dayMetrics = smallPaint.fontMetrics
+
+        // The 2-line block (date on top, weekday below) — its visual top and bottom edges.
+        val blockTop = dateBaseline + dayMetrics.ascent
+        val blockBottom = dayBaseline + dayMetrics.descent
+        val blockCenter = (blockTop + blockBottom) / 2f
+
+        // Vertically center the big time text against that whole 2-line block,
+        // so its top lines up near the date line and its bottom near the weekday line.
         val timeMetrics = timePaint.fontMetrics
-        val timeTop = timeBaseline + timeMetrics.ascent // ascent is negative → this is above timeBaseline
-        val dayDescent = smallPaint.fontMetrics.descent
+        val timeVisualCenterOffset = (timeMetrics.ascent + timeMetrics.descent) / 2f
+        val timeBaseline = blockCenter - timeVisualCenterOffset
+        val timeTop = timeBaseline + timeMetrics.ascent
+        val timeBottom = timeBaseline + timeMetrics.descent
+
+        val barTop = minOf(blockTop, timeTop)
+        val barBottom = maxOf(blockBottom, timeBottom)
 
         // Optional logo above the timestamp block — only drawn if the app provides
         // res/drawable/logo_watermark (your own logo). Sits directly above the tallest
-        // element (the time digits), so it never overlaps the time/date/weekday text.
+        // element, so it never overlaps the time/date/weekday text.
         val logoResId = resources.getIdentifier("logo_watermark", "drawable", packageName)
         if (logoResId != 0) {
             val logo = BitmapFactory.decodeResource(resources, logoResId)
@@ -468,7 +480,7 @@ class MainActivity : AppCompatActivity() {
                 val targetH = 90f * scale
                 val targetW = targetH * (logo.width.toFloat() / logo.height.toFloat())
                 val gapAboveText = 24f * scale
-                val logoBottom = timeTop - gapAboveText
+                val logoBottom = barTop - gapAboveText
                 canvas.drawBitmap(
                     logo, null,
                     RectF(marginLeft, logoBottom - targetH, marginLeft + targetW, logoBottom),
@@ -481,8 +493,8 @@ class MainActivity : AppCompatActivity() {
 
         val barLeft = marginLeft + timePaint.measureText(timeText) + 22f * scale
         canvas.drawRect(
-            barLeft, timeTop,
-            barLeft + 6f * scale, dayBaseline + dayDescent,
+            barLeft, barTop,
+            barLeft + 6f * scale, barBottom,
             barPaint
         )
 
