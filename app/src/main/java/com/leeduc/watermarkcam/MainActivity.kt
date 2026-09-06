@@ -8,10 +8,13 @@ import android.graphics.*
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.view.MotionEvent
 import android.view.animation.AlphaAnimation
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +48,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCloseReview: ImageButton
     private lateinit var btnDeleteReview: ImageButton
     private var reviewAdapter: ReviewPagerAdapter? = null
+
+    // Live clock overlay shown on the camera preview, styled the same as the
+    // watermark that gets baked into the saved photo (see drawTimestampWatermark).
+    private lateinit var txtLiveTime: TextView
+    private lateinit var txtLiveDate: TextView
+    private lateinit var txtLiveDay: TextView
+    private lateinit var imgLiveLogo: ImageView
+    private val clockHandler = Handler(Looper.getMainLooper())
+    private val clockTickRunnable = object : Runnable {
+        override fun run() {
+            updateLiveClock()
+            clockHandler.postDelayed(this, 1000L)
+        }
+    }
 
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
@@ -90,9 +107,14 @@ class MainActivity : AppCompatActivity() {
         pagerReview = findViewById(R.id.pagerReview)
         btnCloseReview = findViewById(R.id.btnCloseReview)
         btnDeleteReview = findViewById(R.id.btnDeleteReview)
+        txtLiveTime = findViewById(R.id.txtLiveTime)
+        txtLiveDate = findViewById(R.id.txtLiveDate)
+        txtLiveDay = findViewById(R.id.txtLiveDay)
+        imgLiveLogo = findViewById(R.id.imgLiveLogo)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
         updateFlashIcon()
+        setupLiveLogo()
 
         btnFlash.setOnClickListener {
             flashOn = !flashOn
@@ -124,6 +146,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateFlashIcon() {
         btnFlash.setImageResource(if (flashOn) R.drawable.ic_flash_on else R.drawable.ic_flash_off)
+    }
+
+    /** Shows the same optional res/drawable/logo_watermark above the live clock, if present. */
+    private fun setupLiveLogo() {
+        val logoResId = resources.getIdentifier("logo_watermark", "drawable", packageName)
+        if (logoResId != 0) {
+            imgLiveLogo.setImageResource(logoResId)
+            imgLiveLogo.visibility = android.view.View.VISIBLE
+        } else {
+            imgLiveLogo.visibility = android.view.View.GONE
+        }
+    }
+
+    /** Refreshes the live clock overlay text, using the exact same formats as drawTimestampWatermark(). */
+    private fun updateLiveClock() {
+        val now = Date()
+        txtLiveTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
+        txtLiveDate.text = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(now)
+        txtLiveDay.text = SimpleDateFormat("EEEE", Locale("vi")).format(now)
+            .split(" ")
+            .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        clockHandler.post(clockTickRunnable)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        clockHandler.removeCallbacks(clockTickRunnable)
     }
 
     private fun startCamera() {
