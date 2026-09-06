@@ -30,8 +30,8 @@
         <ImageView
             android:id="@+id/imgLiveLogo"
             android:layout_width="wrap_content"
-            android:layout_height="26dp"
-            android:layout_marginBottom="6dp"
+            android:layout_height="38dp"
+            android:layout_marginBottom="3dp"
             android:adjustViewBounds="true"
             android:visibility="gone"
             android:contentDescription="Logo" />
@@ -149,6 +149,63 @@
         android:src="@drawable/ic_flash_off"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Recording duration, shown only while a video is being recorded -->
+    <TextView
+        android:id="@+id/txtRecTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="#88000000"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="5dp"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:text="● 00:00"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <!-- Photo / Video mode switch -->
+    <LinearLayout
+        android:id="@+id/modeSwitchContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#66000000"
+        android:paddingHorizontal="4dp"
+        android:paddingVertical="4dp"
+        app:layout_constraintBottom_toTopOf="@id/btnCapture"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="18dp">
+
+        <TextView
+            android:id="@+id/txtModePhoto"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
+            android:text="ẢNH"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:background="@color/white" />
+
+        <TextView
+            android:id="@+id/txtModeVideo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
+            android:text="VIDEO"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            android:background="@android:color/transparent" />
+    </LinearLayout>
 
     <!-- Shutter button -->
     <ImageButton

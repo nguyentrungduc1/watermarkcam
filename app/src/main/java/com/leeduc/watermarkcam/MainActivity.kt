@@ -1,6 +1,7 @@
 package com.leeduc.watermarkcam
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.pm.PackageManager
@@ -9,12 +10,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.provider.MediaStore
 import android.view.MotionEvent
 import android.view.animation.AlphaAnimation
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,7 +25,18 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.core.Camera
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.effects.OverlayEffect
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FallbackStrategy
+import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.viewpager2.widget.ViewPager2
@@ -31,6 +45,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -63,6 +78,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // --- Video recording ---
+    private lateinit var modeSwitchContainer: LinearLayout
+    private lateinit var txtModePhoto: TextView
+    private lateinit var txtModeVideo: TextView
+    private lateinit var txtRecTimer: TextView
+    private var isVideoMode = false
+    private var isRecordingVideo = false
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var activeRecording: Recording? = null
+
+    // Burns the timestamp watermark directly into the camera pipeline (preview + video)
+    // using OpenGL, frame by frame — same layout as drawTimestampOverlay() used for photos.
+    private var overlayEffect: OverlayEffect? = null
+    private lateinit var effectHandlerThread: HandlerThread
+    private lateinit var effectHandler: Handler
+
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
     private lateinit var cameraProvider: ProcessCameraProvider
@@ -84,9 +115,11 @@ class MainActivity : AppCompatActivity() {
     private var startExposureIndex = 0
     private var isDraggingExposure = false
 
-    private val requestPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) startCamera() else {
+    private val requestPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+            if (granted[Manifest.permission.CAMERA] == true) {
+                startCamera()
+            } else {
                 Toast.makeText(this, "Cần quyền Camera để sử dụng ứng dụng", Toast.LENGTH_LONG).show()
                 finish()
             }
@@ -111,8 +144,14 @@ class MainActivity : AppCompatActivity() {
         txtLiveDate = findViewById(R.id.txtLiveDate)
         txtLiveDay = findViewById(R.id.txtLiveDay)
         imgLiveLogo = findViewById(R.id.imgLiveLogo)
+        modeSwitchContainer = findViewById(R.id.modeSwitchContainer)
+        txtModePhoto = findViewById(R.id.txtModePhoto)
+        txtModeVideo = findViewById(R.id.txtModeVideo)
+        txtRecTimer = findViewById(R.id.txtRecTimer)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+        effectHandlerThread = HandlerThread("WatermarkOverlayEffect").apply { start() }
+        effectHandler = Handler(effectHandlerThread.looper)
         updateFlashIcon()
         setupLiveLogo()
 
@@ -124,24 +163,49 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnSwitchCamera.setOnClickListener {
+            if (isRecordingVideo) {
+                Toast.makeText(this, "Không thể đổi camera khi đang quay video", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             usingBackCamera = !usingBackCamera
             bindCameraUseCases()
             updateFlashIcon()
         }
 
-        btnCapture.setOnClickListener { takePhoto() }
+        btnCapture.setOnClickListener { if (isVideoMode) toggleRecording() else takePhoto() }
         btnCloseReview.setOnClickListener { closeReview() }
         btnDeleteReview.setOnClickListener { confirmDeleteCurrentPhoto() }
+        txtModePhoto.setOnClickListener { setVideoMode(false) }
+        txtModeVideo.setOnClickListener { setVideoMode(true) }
 
         setupTapToFocusAndExposure()
+
+        val permissionsNeeded = mutableListOf(Manifest.permission.CAMERA)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsNeeded.add(Manifest.permission.RECORD_AUDIO)
+        }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED
         ) {
             startCamera()
+            if (permissionsNeeded.size > 1) requestPermissions.launch(permissionsNeeded.toTypedArray())
         } else {
-            requestPermission.launch(Manifest.permission.CAMERA)
+            requestPermissions.launch(permissionsNeeded.toTypedArray())
         }
+    }
+
+    /** Switches between photo mode (default shutter) and video mode (red record button). */
+    private fun setVideoMode(video: Boolean) {
+        if (isRecordingVideo) return
+        isVideoMode = video
+        txtModePhoto.setBackgroundColor(if (video) android.graphics.Color.TRANSPARENT else android.graphics.Color.WHITE)
+        txtModePhoto.setTextColor(if (video) android.graphics.Color.WHITE else android.graphics.Color.BLACK)
+        txtModeVideo.setBackgroundColor(if (video) android.graphics.Color.WHITE else android.graphics.Color.TRANSPARENT)
+        txtModeVideo.setTextColor(if (video) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+        btnCapture.contentDescription = if (video) "Quay video" else "Chụp ảnh"
     }
 
     private fun updateFlashIcon() {
@@ -177,6 +241,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         clockHandler.removeCallbacks(clockTickRunnable)
+        if (isRecordingVideo) stopRecording()
     }
 
     private fun startCamera() {
@@ -194,20 +259,55 @@ class MainActivity : AppCompatActivity() {
             it.setSurfaceProvider(viewFinder.surfaceProvider)
         }
 
+        // Ask CameraX for the sensor's highest available resolution instead of letting it
+        // pick a default (which is often much lower than the sensor's real 13MP+ output).
+        val highResSelector = ResolutionSelector.Builder()
+            .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+            .build()
+
         imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            .setResolutionSelector(highResSelector)
             .setFlashMode(
                 if (usingBackCamera && flashOn) ImageCapture.FLASH_MODE_ON
                 else ImageCapture.FLASH_MODE_OFF
             )
             .build()
 
+        val recorder = Recorder.Builder()
+            .setQualitySelector(
+                QualitySelector.from(Quality.FHD, FallbackStrategy.higherQualityOrLowerThan(Quality.FHD))
+            )
+            .build()
+        videoCapture = VideoCapture.withOutput(recorder)
+
+        // Recreate the effect on every rebind (camera switch) so it isn't left bound to a
+        // stale pipeline; the old one is closed first to release its GL resources.
+        overlayEffect?.close()
+        overlayEffect = OverlayEffect(
+            OverlayEffect.VIDEO_CAPTURE,
+            0,
+            effectHandler
+        ) { error -> error.printStackTrace() }.also { effect ->
+            effect.setOnDrawListener { frame ->
+                drawTimestampOverlayOnFrame(frame)
+                true
+            }
+        }
+
         val cameraSelector = if (usingBackCamera)
             CameraSelector.DEFAULT_BACK_CAMERA else CameraSelector.DEFAULT_FRONT_CAMERA
 
+        val useCaseGroup = UseCaseGroup.Builder()
+            .addUseCase(preview)
+            .addUseCase(imageCapture!!)
+            .addUseCase(videoCapture!!)
+            .addEffect(overlayEffect!!)
+            .build()
+
         try {
             cameraProvider.unbindAll()
-            camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
+            camera = cameraProvider.bindToLifecycle(this, cameraSelector, useCaseGroup)
         } catch (e: Exception) {
             Toast.makeText(this, "Không thể khởi động camera: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -342,6 +442,80 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    private fun toggleRecording() {
+        if (isRecordingVideo) stopRecording() else startRecording()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startRecording() {
+        val videoCap = videoCapture ?: return
+        val name = "VID_${System.currentTimeMillis()}.mp4"
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, name)
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/WatermarkCam")
+            }
+        }
+        val outputOptions = MediaStoreOutputOptions.Builder(
+            contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        ).setContentValues(values).build()
+
+        var pending = videoCap.output.prepareRecording(this, outputOptions)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            pending = pending.withAudioEnabled()
+        }
+
+        activeRecording = pending.start(ContextCompat.getMainExecutor(this)) { event ->
+            when (event) {
+                is VideoRecordEvent.Start -> onRecordingStarted()
+                is VideoRecordEvent.Status -> {
+                    val seconds = TimeUnit.NANOSECONDS.toSeconds(event.recordingStats.recordedDurationNanos)
+                    updateRecTimer(seconds)
+                }
+                is VideoRecordEvent.Finalize -> {
+                    onRecordingStopped()
+                    if (event.hasError()) {
+                        Toast.makeText(
+                            this, "Quay video thất bại: ${event.cause?.message}", Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        Toast.makeText(this, "Đã lưu video vào Movies/WatermarkCam", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    private fun stopRecording() {
+        activeRecording?.stop()
+        activeRecording = null
+    }
+
+    private fun onRecordingStarted() {
+        isRecordingVideo = true
+        btnCapture.setBackgroundResource(R.drawable.shutter_button_bg_recording)
+        modeSwitchContainer.visibility = android.view.View.INVISIBLE
+        txtRecTimer.visibility = android.view.View.VISIBLE
+        updateRecTimer(0)
+    }
+
+    private fun onRecordingStopped() {
+        isRecordingVideo = false
+        btnCapture.setBackgroundResource(R.drawable.shutter_button_bg)
+        modeSwitchContainer.visibility = android.view.View.VISIBLE
+        txtRecTimer.visibility = android.view.View.GONE
+    }
+
+    private fun updateRecTimer(totalSeconds: Long) {
+        val m = totalSeconds / 60
+        val s = totalSeconds % 60
+        txtRecTimer.text = String.format(Locale.getDefault(), "● %02d:%02d", m, s)
     }
 
     /**
@@ -533,18 +707,47 @@ class MainActivity : AppCompatActivity() {
         return bitmap
     }
 
+    /** Bakes the same watermark drawn live on video into the final saved photo bitmap. */
+    private fun drawTimestampWatermark(source: Bitmap): Bitmap {
+        val result = source.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(result)
+        drawTimestampOverlay(canvas, result.width.toFloat(), result.height.toFloat())
+        return result
+    }
+
+    /**
+     * Draws the overlay onto a video frame from the OverlayEffect, first rotating/mirroring
+     * the canvas so its coordinate space matches the final, upright output — then delegates
+     * to the exact same drawTimestampOverlay() used for photos, so video and photo watermarks
+     * look identical.
+     */
+    private fun drawTimestampOverlayOnFrame(frame: androidx.camera.effects.Frame) {
+        val canvas = frame.overlayCanvas
+        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        canvas.save()
+        val w = frame.size.width.toFloat()
+        val h = frame.size.height.toFloat()
+        canvas.translate(w / 2f, h / 2f)
+        canvas.rotate(frame.rotationDegrees.toFloat())
+        if (frame.isMirroring) canvas.scale(-1f, 1f)
+        val rotated90 = frame.rotationDegrees % 180 != 0
+        val drawW = if (rotated90) h else w
+        val drawH = if (rotated90) w else h
+        canvas.translate(-drawW / 2f, -drawH / 2f)
+        drawTimestampOverlay(canvas, drawW, drawH)
+        canvas.restore()
+    }
+
     /**
      * Draws a bottom-left timestamp watermark: optional logo on top, then a large time
      * next to a thin orange divider bar, with the date and weekday to the right of it —
      * matching the layout of a typical verified-timestamp camera app.
      * Drop a drawable named "logo_watermark" (e.g. your own company logo PNG) into
      * res/drawable to have it appear automatically; otherwise no logo is drawn.
+     * Shared by photo saving (Canvas over a Bitmap) and live video recording
+     * (Canvas over an OverlayEffect frame) so both look identical.
      */
-    private fun drawTimestampWatermark(source: Bitmap): Bitmap {
-        val result = source.copy(Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(result)
-        val w = result.width.toFloat()
-        val h = result.height.toFloat()
+    private fun drawTimestampOverlay(canvas: Canvas, w: Float, h: Float) {
         val scale = w / 1080f
 
         val now = Date()
@@ -601,9 +804,9 @@ class MainActivity : AppCompatActivity() {
         if (logoResId != 0) {
             val logo = BitmapFactory.decodeResource(resources, logoResId)
             if (logo != null) {
-                val targetH = 90f * scale
+                val targetH = 130f * scale
                 val targetW = targetH * (logo.width.toFloat() / logo.height.toFloat())
-                val gapAboveText = 24f * scale
+                val gapAboveText = 10f * scale
                 val logoBottom = barTop - gapAboveText
                 canvas.drawBitmap(
                     logo, null,
@@ -625,8 +828,6 @@ class MainActivity : AppCompatActivity() {
         val textLeft2 = barLeft + 22f * scale
         canvas.drawText(dateText, textLeft2, dateBaseline, smallPaint)
         canvas.drawText(dayText, textLeft2, dayBaseline, smallPaint)
-
-        return result
     }
 
     private fun saveToGallery(bitmap: Bitmap) {
@@ -644,7 +845,7 @@ class MainActivity : AppCompatActivity() {
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return
         resolver.openOutputStream(uri)?.use { out ->
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
             out.write(stream.toByteArray())
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -656,6 +857,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        overlayEffect?.close()
+        effectHandlerThread.quitSafely()
         cameraExecutor.shutdown()
     }
 
