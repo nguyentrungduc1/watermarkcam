@@ -160,6 +160,7 @@ class MainActivity : AppCompatActivity() {
             imageCapture?.flashMode =
                 if (usingBackCamera && flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
             updateFlashIcon()
+            updateTorchState()
         }
 
         btnSwitchCamera.setOnClickListener {
@@ -206,6 +207,7 @@ class MainActivity : AppCompatActivity() {
         txtModeVideo.setBackgroundColor(if (video) android.graphics.Color.WHITE else android.graphics.Color.TRANSPARENT)
         txtModeVideo.setTextColor(if (video) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
         btnCapture.contentDescription = if (video) "Quay video" else "Chụp ảnh"
+        bindCameraUseCases()
     }
 
     private fun updateFlashIcon() {
@@ -259,58 +261,81 @@ class MainActivity : AppCompatActivity() {
             it.setSurfaceProvider(viewFinder.surfaceProvider)
         }
 
-        // Ask CameraX for the sensor's highest available resolution instead of letting it
-        // pick a default (which is often much lower than the sensor's real 13MP+ output).
-        val highResSelector = ResolutionSelector.Builder()
-            .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
-            .build()
-
-        imageCapture = ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-            .setResolutionSelector(highResSelector)
-            .setFlashMode(
-                if (usingBackCamera && flashOn) ImageCapture.FLASH_MODE_ON
-                else ImageCapture.FLASH_MODE_OFF
-            )
-            .build()
-
-        val recorder = Recorder.Builder()
-            .setQualitySelector(
-                QualitySelector.from(Quality.FHD, FallbackStrategy.higherQualityOrLowerThan(Quality.FHD))
-            )
-            .build()
-        videoCapture = VideoCapture.withOutput(recorder)
-
-        // Recreate the effect on every rebind (camera switch) so it isn't left bound to a
-        // stale pipeline; the old one is closed first to release its GL resources.
-        overlayEffect?.close()
-        overlayEffect = OverlayEffect(
-            OverlayEffect.VIDEO_CAPTURE,
-            0,
-            effectHandler
-        ) { error -> error.printStackTrace() }.also { effect ->
-            effect.setOnDrawListener { frame ->
-                drawTimestampOverlayOnFrame(frame)
-                true
-            }
-        }
-
         val cameraSelector = if (usingBackCamera)
             CameraSelector.DEFAULT_BACK_CAMERA else CameraSelector.DEFAULT_FRONT_CAMERA
 
-        val useCaseGroup = UseCaseGroup.Builder()
-            .addUseCase(preview)
-            .addUseCase(imageCapture!!)
-            .addUseCase(videoCapture!!)
-            .addEffect(overlayEffect!!)
-            .build()
+        val groupBuilder = UseCaseGroup.Builder().addUseCase(preview)
+
+        // Photo and video are bound to SEPARATE use-case combinations (never Preview +
+        // ImageCapture + VideoCapture all at once). Most phones are a "LIMITED" camera
+        // device: binding 3 concurrent streams forces the whole pipeline down to a small
+        // shared resolution/fps. Splitting like this is what restores the sensor's real
+        // ~13MP for photos and gives video a proper resolution/frame rate.
+        if (isVideoMode) {
+            imageCapture = null
+
+            val recorder = Recorder.Builder()
+                .setQualitySelector(
+                    QualitySelector.from(Quality.FHD, FallbackStrategy.higherQualityOrLowerThan(Quality.FHD))
+                )
+                .build()
+            videoCapture = VideoCapture.withOutput(recorder)
+
+            // Recreate the effect on every rebind so it isn't left bound to a stale
+            // pipeline; the old one is closed first to release its GL resources.
+            overlayEffect?.close()
+            overlayEffect = OverlayEffect(
+                OverlayEffect.VIDEO_CAPTURE,
+                0,
+                effectHandler
+            ) { error -> error.printStackTrace() }.also { effect ->
+                effect.setOnDrawListener { frame ->
+                    drawTimestampOverlayOnFrame(frame)
+                    true
+                }
+            }
+
+            groupBuilder.addUseCase(videoCapture!!).addEffect(overlayEffect!!)
+        } else {
+            videoCapture = null
+            overlayEffect?.close()
+            overlayEffect = null
+
+            // Ask CameraX for the sensor's highest available resolution instead of letting
+            // it pick a default (which is often much lower than the sensor's real output).
+            val highResSelector = ResolutionSelector.Builder()
+                .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                .build()
+
+            imageCapture = ImageCapture.Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                .setResolutionSelector(highResSelector)
+                .setFlashMode(
+                    if (usingBackCamera && flashOn) ImageCapture.FLASH_MODE_ON
+                    else ImageCapture.FLASH_MODE_OFF
+                )
+                .build()
+
+            groupBuilder.addUseCase(imageCapture!!)
+        }
 
         try {
             cameraProvider.unbindAll()
-            camera = cameraProvider.bindToLifecycle(this, cameraSelector, useCaseGroup)
+            camera = cameraProvider.bindToLifecycle(this, cameraSelector, groupBuilder.build())
+            updateTorchState()
         } catch (e: Exception) {
             Toast.makeText(this, "Không thể khởi động camera: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    /**
+     * In video mode, turning "flash" on means the torch should stay lit continuously for
+     * the whole recording (unlike photo mode, where ImageCapture fires the flash only for
+     * an instant). Re-applied after every rebind since unbind/rebind resets torch state.
+     */
+    private fun updateTorchState() {
+        val shouldTorch = usingBackCamera && flashOn && isVideoMode
+        camera?.cameraControl?.enableTorch(shouldTorch)
     }
 
     /** Tap on the preview = focus + auto-exposure at that point. Tap-and-drag vertically = manual brightness (EV). */
@@ -728,7 +753,7 @@ class MainActivity : AppCompatActivity() {
         val w = frame.size.width.toFloat()
         val h = frame.size.height.toFloat()
         canvas.translate(w / 2f, h / 2f)
-        canvas.rotate(frame.rotationDegrees.toFloat())
+        canvas.rotate(-frame.rotationDegrees.toFloat())
         if (frame.isMirroring) canvas.scale(-1f, 1f)
         val rotated90 = frame.rotationDegrees % 180 != 0
         val drawW = if (rotated90) h else w
