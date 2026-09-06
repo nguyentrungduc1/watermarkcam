@@ -1,9 +1,11 @@
 package com.leeduc.watermarkcam
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.*
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -13,12 +15,14 @@ import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.core.Camera
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.viewpager2.widget.ViewPager2
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
@@ -37,8 +41,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var focusRing: android.view.View
     private lateinit var screenFlashOverlay: android.view.View
     private lateinit var reviewOverlay: android.view.View
-    private lateinit var imgReview: android.widget.ImageView
+    private lateinit var pagerReview: ViewPager2
     private lateinit var btnCloseReview: ImageButton
+    private lateinit var btnDeleteReview: ImageButton
+    private var reviewAdapter: ReviewPagerAdapter? = null
 
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
@@ -81,8 +87,9 @@ class MainActivity : AppCompatActivity() {
         focusRing = findViewById(R.id.focusRing)
         screenFlashOverlay = findViewById(R.id.screenFlashOverlay)
         reviewOverlay = findViewById(R.id.reviewOverlay)
-        imgReview = findViewById(R.id.imgReview)
+        pagerReview = findViewById(R.id.pagerReview)
         btnCloseReview = findViewById(R.id.btnCloseReview)
+        btnDeleteReview = findViewById(R.id.btnDeleteReview)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
         updateFlashIcon()
@@ -102,7 +109,7 @@ class MainActivity : AppCompatActivity() {
 
         btnCapture.setOnClickListener { takePhoto() }
         btnCloseReview.setOnClickListener { closeReview() }
-        imgReview.setOnClickListener { closeReview() }
+        btnDeleteReview.setOnClickListener { confirmDeleteCurrentPhoto() }
 
         setupTapToFocusAndExposure()
 
@@ -265,7 +272,7 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         hideScreenFlash()
                         btnCapture.isEnabled = true
-                        showReview(watermarked)
+                        showReview()
                     }
                 }
 
@@ -284,15 +291,79 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    /** Shows the just-captured photo full-screen so the user can review it before shooting again. */
-    private fun showReview(bitmap: Bitmap) {
-        imgReview.setImageBitmap(bitmap)
+    /**
+     * Shows the review screen: newest photo first, swipe left/right for older ones,
+     * pinch or double-tap to zoom. Reads the list fresh from the gallery every time,
+     * so it always reflects what's actually saved (including after a delete).
+     */
+    private fun showReview() {
+        val uris = queryWatermarkCamPhotos()
+        if (uris.isEmpty()) return
+        reviewAdapter = ReviewPagerAdapter(uris)
+        pagerReview.adapter = reviewAdapter
+        pagerReview.setCurrentItem(0, false)
         reviewOverlay.visibility = android.view.View.VISIBLE
     }
 
     private fun closeReview() {
         reviewOverlay.visibility = android.view.View.GONE
-        imgReview.setImageBitmap(null)
+        pagerReview.adapter = null
+        reviewAdapter = null
+    }
+
+    /** Queries every photo this app has saved to Pictures/WatermarkCam, newest first. */
+    private fun queryWatermarkCamPhotos(): MutableList<Uri> {
+        val result = mutableListOf<Uri>()
+        val projection = arrayOf(MediaStore.Images.Media._ID)
+        val selection: String
+        val selectionArgs: Array<String>
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            selection = "${MediaStore.Images.Media.RELATIVE_PATH} = ?"
+            selectionArgs = arrayOf("Pictures/WatermarkCam/")
+        } else {
+            selection = "${MediaStore.Images.Media.DATA} LIKE ?"
+            selectionArgs = arrayOf("%/WatermarkCam/%")
+        }
+        val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
+        contentResolver.query(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            projection, selection, selectionArgs, sortOrder
+        )?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+            while (cursor.moveToNext()) {
+                result.add(
+                    ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cursor.getLong(idCol))
+                )
+            }
+        }
+        return result
+    }
+
+    /** Asks for confirmation, then permanently deletes the photo currently shown in the review pager. */
+    private fun confirmDeleteCurrentPhoto() {
+        val adapter = reviewAdapter ?: return
+        val position = pagerReview.currentItem
+        if (position !in 0 until adapter.itemCount) return
+
+        AlertDialog.Builder(this)
+            .setTitle("Xoá ảnh?")
+            .setMessage("Ảnh sẽ bị xoá vĩnh viễn khỏi thư viện, không thể khôi phục.")
+            .setPositiveButton("Xoá") { _, _ -> deletePhotoAt(position) }
+            .setNegativeButton("Huỷ", null)
+            .show()
+    }
+
+    private fun deletePhotoAt(position: Int) {
+        val adapter = reviewAdapter ?: return
+        val uri = adapter.uriAt(position) ?: return
+        try {
+            contentResolver.delete(uri, null, null)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Không xoá được ảnh: ${e.message}", Toast.LENGTH_SHORT).show()
+            return
+        }
+        adapter.removeAt(position)
+        if (adapter.itemCount == 0) closeReview()
     }
 
     /**

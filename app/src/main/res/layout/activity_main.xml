@@ -93,7 +93,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Post-capture review screen -->
+    <!-- Post-capture review screen: swipe between photos, pinch to zoom, delete -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/reviewOverlay"
         android:layout_width="0dp"
@@ -105,12 +105,10 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageView
-            android:id="@+id/imgReview"
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/pagerReview"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:scaleType="fitCenter"
-            android:contentDescription="Ảnh vừa chụp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -129,11 +127,25 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
+        <ImageButton
+            android:id="@+id/btnDeleteReview"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginStart="20dp"
+            android:background="#66000000"
+            android:contentDescription="Xoá ảnh này"
+            android:padding="12dp"
+            android:src="@android:drawable/ic_menu_delete"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
         <TextView
+            android:id="@+id/txtReviewHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="28dp"
-            android:text="Đã lưu vào Pictures/WatermarkCam — chạm ✕ để chụp tiếp"
+            android:text="Vuốt để xem ảnh trước đó — chụm/kéo để phóng to"
             android:textColor="@color/white"
             android:textSize="13sp"
             android:background="#66000000"
