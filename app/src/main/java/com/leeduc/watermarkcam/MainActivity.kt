@@ -448,16 +448,27 @@ class MainActivity : AppCompatActivity() {
 
         val marginLeft = 44f * scale
         val marginBottom = 60f * scale
+        val lineGap = 48f * scale
+
+        val dayBaseline = h - marginBottom
+        val dateBaseline = dayBaseline - lineGap
+        // Time sits on the SAME row/baseline as the date line (not centered across both lines).
+        val timeBaseline = dateBaseline
+        val timeMetrics = timePaint.fontMetrics
+        val timeTop = timeBaseline + timeMetrics.ascent // ascent is negative → this is above timeBaseline
+        val dayDescent = smallPaint.fontMetrics.descent
 
         // Optional logo above the timestamp block — only drawn if the app provides
-        // res/drawable/logo_watermark (your own logo). Nothing is drawn otherwise.
+        // res/drawable/logo_watermark (your own logo). Sits directly above the tallest
+        // element (the time digits), so it never overlaps the time/date/weekday text.
         val logoResId = resources.getIdentifier("logo_watermark", "drawable", packageName)
         if (logoResId != 0) {
             val logo = BitmapFactory.decodeResource(resources, logoResId)
             if (logo != null) {
                 val targetH = 90f * scale
                 val targetW = targetH * (logo.width.toFloat() / logo.height.toFloat())
-                val logoBottom = h - marginBottom - 150f * scale - 16f * scale
+                val gapAboveText = 24f * scale
+                val logoBottom = timeTop - gapAboveText
                 canvas.drawBitmap(
                     logo, null,
                     RectF(marginLeft, logoBottom - targetH, marginLeft + targetW, logoBottom),
@@ -466,17 +477,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val dayBaseline = h - marginBottom
-        val dateBaseline = dayBaseline - (48f * scale)
-        val timeMetrics = timePaint.fontMetrics
-        val timeBaseline = dateBaseline - (timeMetrics.descent - timeMetrics.ascent) / 2f - 12f * scale
-
         canvas.drawText(timeText, marginLeft, timeBaseline, timePaint)
 
         val barLeft = marginLeft + timePaint.measureText(timeText) + 22f * scale
         canvas.drawRect(
-            barLeft, timeBaseline + timeMetrics.ascent,
-            barLeft + 6f * scale, timeBaseline + timeMetrics.descent,
+            barLeft, timeTop,
+            barLeft + 6f * scale, dayBaseline + dayDescent,
             barPaint
         )
 
