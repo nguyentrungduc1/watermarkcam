@@ -18,14 +18,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
       - name: Install Android SDK packages
         run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
       - name: Build and lint
         run: bash ./gradlew --no-daemon assembleDebug lintDebug
       - name: Test retouch math
         run: |
-          javac -d app/build/retouch-tests app/src/main/java/com/codex/cameraapp/RetouchTone.java tests/RetouchToneTest.java
-          java -cp app/build/retouch-tests com.codex.cameraapp.RetouchToneTest
+          javac -d app/build/retouch-tests app/src/main/java/com/nguyentrungduc1/watermarkcam/RetouchTone.java tests/RetouchToneTest.java
+          java -cp app/build/retouch-tests com.nguyentrungduc1.watermarkcam.RetouchToneTest
       - name: Upload installable APK
         uses: actions/upload-artifact@v6
         with:

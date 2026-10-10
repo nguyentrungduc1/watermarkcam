@@ -1,4 +1,4 @@
-package com.codex.cameraapp;
+package com.nguyentrungduc1.watermarkcam;
 
 public final class RetouchToneTest {
     public static void main(String[] args) {

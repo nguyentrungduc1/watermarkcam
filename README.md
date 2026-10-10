@@ -1,36 +1,38 @@
-# Lucid Camera 1.2
+# Lucid Camera
 
-Android camera app with photo/video capture, ePass Nhat Le 2 timestamp watermark,
-orange-red controls, and offline skin segmentation for saved selfies.
+Android camera app with photo and video capture, ePass Nhat Le 2 timestamp
+watermarks, and on-device selfie retouching.
 
-## Build APK on GitHub
+## Build
 
-1. Extract the source ZIP and push its contents to the repository root. Include
-   `.github`, `gradle`, `gradlew`, `gradlew.bat`, and the model in `app/src/main/assets`.
-   Uploading only the ZIP does not run the workflow.
-2. Open **Actions > Build APK**. It runs on pushes and can also run manually.
-3. After a successful run, download **Lucid-Camera-1.2-debug** under **Artifacts**.
-4. Extract the artifact and install `app-debug.apk` on Android 7.0 or newer.
+Requires JDK 17, Android SDK 34 and Build Tools 34.0.0. Configure `ANDROID_HOME`
+or set the SDK path in an untracked `local.properties` file.
 
-This workflow builds a debug-signed APK for testing, not a Play Store release.
-GitHub's debug signing key differs from the local development key and may change
-between runs. Updating an existing installation can require uninstalling it first,
-which removes app-private settings/data. No signing keys are included in this ZIP.
+Windows:
 
-## Local build
+```powershell
+.\gradlew.bat assembleDebug lintDebug
+```
 
-Use JDK 17, Android SDK platform 34 and build-tools 34.0.0.
-Set ANDROID_HOME or create an untracked `local.properties` with your SDK location.
+Linux/macOS:
 
 ```sh
 bash ./gradlew assembleDebug lintDebug
 ```
 
-Windows: `gradlew.bat assembleDebug lintDebug`.
-Output: `app/build/outputs/apk/debug/app-debug.apk`.
+Output: `app/build/outputs/apk/debug/app-debug.apk`. Requires Android 7.0 or later.
 
-## Included assets
+## GitHub Actions
 
-The skin segmentation model is bundled and runs on-device. See
-`app/src/main/assets/models/README.md` for its source. Test photos/videos, device
-screenshots, build caches, local SDK paths, and private keys are excluded.
+The **Build APK** workflow runs on pushes and pull requests, or manually from
+the Actions tab. Download **Lucid-Camera-1.2-debug** from a successful run's
+Artifacts section and extract `app-debug.apk`.
+
+Builds are debug-signed for testing. Signing keys may differ between builds;
+installing an update can require uninstalling the previous version, which removes
+app-private data and settings. Private signing keys must not be committed.
+
+## Dependencies
+
+CameraX, Camera2 and MediaPipe. Model source information is available in
+[models/README.md](app/src/main/assets/models/README.md).

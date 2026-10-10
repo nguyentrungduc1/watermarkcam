@@ -1,4 +1,4 @@
-package com.codex.cameraapp;
+package com.nguyentrungduc1.watermarkcam;
 
 final class RetouchTone {
     static float softRange(float value, float low, float high, float feather) {

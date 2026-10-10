@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace "com.codex.cameraapp"
+    namespace "com.nguyentrungduc1.watermarkcam"
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.codex.cameraapp"
+        applicationId "com.nguyentrungduc1.watermarkcam"
         minSdk 24
         targetSdk 34
         versionCode 3

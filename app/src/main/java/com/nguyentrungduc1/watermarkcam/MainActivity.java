@@ -1,4 +1,4 @@
-package com.codex.cameraapp;
+package com.nguyentrungduc1.watermarkcam;
 
 import android.Manifest;
 import android.content.ContentValues;
