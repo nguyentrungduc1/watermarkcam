@@ -1,5 +1,9 @@
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-    <color name="accent">#FFC107</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="brand_accent">#FF673D</color>
+    <color name="brand_deep">#D93624</color>
+    <color name="brand_dark">#29100B</color>
+    <color name="brand_halo">#33FF673D</color>
+    <color name="camera_red">#FF4D5E</color>
 </resources>

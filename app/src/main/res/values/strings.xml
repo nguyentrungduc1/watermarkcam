@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">WatermarkCam</string>
+    <string name="app_name">Lucid Camera</string>
+    <string name="watermark_location">Nhật Lệ 2</string>
 </resources>

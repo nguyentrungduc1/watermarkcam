@@ -1,0 +1,13 @@
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+/exports/
+/packaging-check/
+/*.png
+/*.jpg
+/*.mp4
+*.keystore
+*.jks

@@ -1,299 +1,387 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black">
+    android:background="@color/black"
+    tools:context=".MainActivity">
 
     <androidx.camera.view.PreviewView
-        android:id="@+id/viewFinder"
+        android:id="@+id/previewView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="parent"
+        app:implementationMode="compatible"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:scaleType="fillCenter" />
 
-    <!-- Live timestamp preview, styled like the watermark baked into the saved photo -->
+    <TextureView
+        android:id="@+id/photoPreviewView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/screenFlashView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:alpha="0"
+        android:background="@color/white"
+        android:clickable="false"
+        android:elevation="4dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/focusRing"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:alpha="0"
+        android:background="@drawable/bg_focus_ring"
+        android:elevation="8dp" />
+
     <LinearLayout
-        android:id="@+id/liveWatermarkOverlay"
+        android:id="@+id/topBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="18dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="10dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/titleText"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:text="@string/app_name"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/flashButton"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="58dp"
+            android:layout_height="42dp"
+            android:layout_marginEnd="10dp"
+            android:backgroundTint="#66000000"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            android:text="A"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            app:cornerRadius="21dp"
+            app:strokeColor="#44FFFFFF"
+            app:strokeWidth="1dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/switchButton"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="58dp"
+            android:layout_height="42dp"
+            android:backgroundTint="#66000000"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            android:text="Flip"
+            android:textAllCaps="false"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            app:cornerRadius="21dp"
+            app:strokeColor="#44FFFFFF"
+            app:strokeWidth="1dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/timerText"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginTop="76dp"
+        android:background="@drawable/bg_chip"
+        android:gravity="center"
+        android:minWidth="82dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:text="00:00"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/beautyPanel"
+        android:layout_width="wrap_content"
+        android:layout_height="42dp"
+        android:layout_marginTop="76dp"
+        android:background="@drawable/bg_chip"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/smoothButton"
+            android:layout_width="92dp"
+            android:layout_height="34dp"
+            android:gravity="center"
+            android:text="Mịn da"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/brightButton"
+            android:layout_width="92dp"
+            android:layout_height="34dp"
+            android:gravity="center"
+            android:text="Sáng da"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/watermarkOverlay"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="40dp"
+        android:layout_marginBottom="250dp"
         android:orientation="vertical"
-        android:gravity="start"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginStart="20dp"
-        android:layout_marginBottom="32dp">
+        app:layout_constraintStart_toStartOf="parent">
 
-        <ImageView
-            android:id="@+id/imgLiveLogo"
+        <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:layout_marginBottom="3dp"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/watermarkLogo"
+            android:layout_width="108dp"
+            android:layout_height="48dp"
             android:adjustViewBounds="true"
-            android:visibility="gone"
-            android:contentDescription="Logo" />
+            android:scaleType="fitStart"
+            android:src="@drawable/logo_watermark" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/watermark_location"
+            android:textColor="@color/white"
+            android:textSize="21sp"
+            android:textStyle="bold"
+            android:shadowColor="#000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="4" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/txtLiveTime"
+                android:id="@+id/watermarkTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:shadowColor="#000000"
+                android:shadowDx="2"
+                android:shadowDy="2"
+                android:shadowRadius="6"
+                android:text="00:00"
                 android:textColor="@color/white"
-                android:textSize="30sp"
-                android:textStyle="bold"
-                android:shadowColor="#CC000000"
-                android:shadowDx="1.5"
-                android:shadowDy="1.5"
-                android:shadowRadius="3"
-                android:text="00:00" />
+                android:textSize="40sp"
+                android:textStyle="bold" />
 
             <View
-                android:id="@+id/viewLiveBar"
-                android:layout_width="2dp"
-                android:layout_height="30dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
+                android:layout_width="3dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="10dp"
                 android:background="#FF7A00" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="start">
+                android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/txtLiveDate"
+                    android:id="@+id/watermarkDate"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:shadowColor="#000000"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="5"
+                    android:text="07/09/2026"
                     android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:shadowColor="#CC000000"
-                    android:shadowDx="1.5"
-                    android:shadowDy="1.5"
-                    android:shadowRadius="2"
-                    android:text="01/01/2026" />
+                    android:textSize="17sp" />
 
                 <TextView
-                    android:id="@+id/txtLiveDay"
+                    android:id="@+id/watermarkWeekday"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:shadowColor="#000000"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="5"
+                    android:text="Thứ Hai"
                     android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:shadowColor="#CC000000"
-                    android:shadowDx="1.5"
-                    android:shadowDy="1.5"
-                    android:shadowRadius="2"
-                    android:text="Thứ Năm" />
-
+                    android:textSize="17sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Focus ring shown briefly where the user taps -->
-    <View
-        android:id="@+id/focusRing"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:background="@drawable/focus_ring"
-        android:visibility="invisible" />
-
-    <!-- Exposure (brightness) indicator shown while dragging after a tap -->
-    <TextView
-        android:id="@+id/txtExposure"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="#88000000"
-        android:paddingHorizontal="10dp"
-        android:paddingVertical="4dp"
-        android:textColor="@color/white"
-        android:textSize="13sp"
-        android:visibility="invisible"
-        android:text="EV 0"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="90dp" />
-
-    <!-- Switch camera (front/back) -->
-    <ImageButton
-        android:id="@+id/btnSwitchCamera"
-        android:layout_width="52dp"
-        android:layout_height="52dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginStart="20dp"
-        android:background="#66000000"
-        android:contentDescription="Đổi camera trước/sau"
-        android:padding="12dp"
-        android:src="@drawable/ic_switch_camera"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <!-- Flash toggle -->
-    <ImageButton
-        android:id="@+id/btnFlash"
-        android:layout_width="52dp"
-        android:layout_height="52dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginEnd="20dp"
-        android:background="#66000000"
-        android:contentDescription="Bật/tắt flash"
-        android:padding="12dp"
-        android:src="@drawable/ic_flash_off"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- Recording duration, shown only while a video is being recorded -->
-    <TextView
-        android:id="@+id/txtRecTimer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="#88000000"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="5dp"
-        android:textColor="@color/white"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:text="● 00:00"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="24dp" />
-
-    <!-- Photo / Video mode switch -->
     <LinearLayout
-        android:id="@+id/modeSwitchContainer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:id="@+id/zoomPanel"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="26dp"
+        android:layout_marginEnd="26dp"
+        android:layout_marginBottom="150dp"
+        android:background="@drawable/bg_panel"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:background="#66000000"
-        android:paddingHorizontal="4dp"
-        android:paddingVertical="4dp"
-        app:layout_constraintBottom_toTopOf="@id/btnCapture"
-        app:layout_constraintStart_toStartOf="parent"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginBottom="18dp">
+        app:layout_constraintStart_toStartOf="parent">
 
         <TextView
-            android:id="@+id/txtModePhoto"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="6dp"
-            android:text="ẢNH"
-            android:textStyle="bold"
-            android:textColor="@color/black"
-            android:textSize="13sp"
-            android:background="@color/white" />
-
-        <TextView
-            android:id="@+id/txtModeVideo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="6dp"
-            android:text="VIDEO"
-            android:textStyle="bold"
+            android:id="@+id/zoomText"
+            android:layout_width="54dp"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:text="1.0x"
             android:textColor="@color/white"
-            android:textSize="13sp"
-            android:background="@android:color/transparent" />
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/zoomSlider"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:stepSize="0"
+            android:value="1"
+            android:valueFrom="1"
+            android:valueTo="8"
+            app:haloColor="@color/brand_halo"
+            app:thumbColor="@color/brand_accent"
+            app:trackColorActive="@color/brand_accent"
+            app:trackColorInactive="#55FFFFFF" />
     </LinearLayout>
 
-    <!-- Shutter button -->
-    <ImageButton
-        android:id="@+id/btnCapture"
-        android:layout_width="76dp"
-        android:layout_height="76dp"
-        android:layout_marginBottom="32dp"
-        android:background="@drawable/shutter_button_bg"
-        android:contentDescription="Chụp ảnh"
-        android:src="@android:color/transparent"
+    <LinearLayout
+        android:id="@+id/modeTabs"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginBottom="96dp"
+        android:background="@drawable/bg_chip"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="4dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- Full-white overlay used as a "screen flash" for the front camera -->
-    <View
-        android:id="@+id/screenFlashOverlay"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="@color/white"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- Post-capture review screen: swipe between photos, pinch to zoom, delete -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/reviewOverlay"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="@color/black"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <androidx.viewpager2.widget.ViewPager2
-            android:id="@+id/pagerReview"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
-
-        <ImageButton
-            android:id="@+id/btnCloseReview"
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:layout_marginTop="24dp"
-            android:layout_marginEnd="20dp"
-            android:background="#66000000"
-            android:contentDescription="Đóng xem ảnh"
-            android:padding="12dp"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
-
-        <ImageButton
-            android:id="@+id/btnDeleteReview"
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:layout_marginTop="24dp"
-            android:layout_marginStart="20dp"
-            android:background="#66000000"
-            android:contentDescription="Xoá ảnh này"
-            android:padding="12dp"
-            android:src="@android:drawable/ic_menu_delete"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
         <TextView
-            android:id="@+id/txtReviewHint"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="28dp"
-            android:text="Vuốt để xem ảnh trước đó — chụm/kéo để phóng to"
-            android:textColor="@color/white"
-            android:textSize="13sp"
-            android:background="#66000000"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="4dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            android:id="@+id/photoMode"
+            android:layout_width="78dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:text="Ảnh"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        <TextView
+            android:id="@+id/videoMode"
+            android:layout_width="78dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:text="Video"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/galleryButton"
+        android:layout_width="58dp"
+        android:layout_height="58dp"
+        android:layout_marginStart="32dp"
+        android:layout_marginBottom="28dp"
+        android:background="@drawable/bg_thumbnail"
+        android:contentDescription="Mở ảnh gần nhất"
+        android:padding="0dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/shutterButton"
+        android:layout_width="86dp"
+        android:layout_height="86dp"
+        android:layout_marginBottom="14dp"
+        android:background="@drawable/bg_shutter_photo"
+        android:contentDescription="Chụp ảnh"
+        android:text=""
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="18dp"
+        android:background="@drawable/bg_chip"
+        android:gravity="center"
+        android:paddingStart="16dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/zoomPanel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
